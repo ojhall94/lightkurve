@@ -1194,7 +1194,7 @@ class TessTargetPixelFile(TargetPixelFile):
     kwargs : dict
         Keyword arguments passed to `astropy.io.fits.open()`.
     """
-    def __init__(self, path, quality_bitmask=None, **kwargs):
+    def __init__(self, path, quality_bitmask='default', **kwargs):
         super(TessTargetPixelFile, self).__init__(path,
                                                   quality_bitmask=quality_bitmask,
                                                   **kwargs)
@@ -1212,6 +1212,20 @@ class TessTargetPixelFile(TargetPixelFile):
 
     def __repr__(self):
         return('TessTargetPixelFile(TICID: {})'.format(self.targetid))
+
+    @property
+    def pipeline_mask(self):
+        """Returns the optimal aperture mask used by the TESS pipeline.
+
+        For details on how the mask is stored in a TPF, see Section 6 of the
+        Data Products documentation (EXP-TESS-ARC-ICD-TM-0014.pdf).
+        """
+        return self.hdu[2].data & 2 > 0
+
+    @property
+    def background_mask(self):
+        """Returns the background mask used by the TESS pipeline."""
+        return self.hdu[2].data & 4 > 0
 
     @property
     def sector(self):
