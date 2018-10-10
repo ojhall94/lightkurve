@@ -513,7 +513,7 @@ class Periodogram(object):
             smoothed_ps = gaussian_filter(self.power.value, 1000)
 
             numax = self.frequency[np.argmax(smoothed_ps)]
-            return nu_max
+            return numax
 
     def _autocorrelate(self, numax):
         #TODO: Improve docstring
