@@ -29,6 +29,20 @@ Rsol = const.R_sun.to(u.R_sun)
 Msol = const.M_sun.to(u.M_sun)
 gsol = 100 * (const.G * const.M_sun)/(const.R_sun)**2 #cms^2
 
+def dnu_mass_prior(numax, numax_sol=3050.0,
+               dnu_sol=135.1, teff_sol=5777.0):
+    ''' Mass scaling relation ...
+    M/M' = (numax/numax')**3 (dnu/dnu')**-4 (teff/teff')**(3/2)
+    So dnur**4 = numaxr**3 teffr**3/2 * Mr**-1*
+    dnur = (nuamxr**3 * teffr**3/2 / Mr)**1/4
+    dnu = (nuamxr**3 * teffr**3/2 / Mr)**1/4 * dnu'
+    '''
+    numaxr = numax / numax_sol
+    teffr = np.array([3500, 5500]) / teff_sol
+    Mr = np.array([10.0, 0.1])
+    dnu = (numaxr**3 * teffr**1.5 / Mr)**0.25 * dnu_sol
+    return dnu
+
 #We can worry about unit conversions later
 def estimate_radius(numax, dnu, Teff,
                     numax_error=None, dnu_error=None, Teff_error=None,

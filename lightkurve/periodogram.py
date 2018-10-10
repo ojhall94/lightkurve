@@ -14,6 +14,11 @@ from astropy import __version__
 from astropy import units as u
 from astropy.units import cds
 
+from scipy.ndimage.filters import gaussian_filter
+
+#TODO: Pythonize this properly
+from .asteroseismology import *
+
 from . import MPLSTYLE
 
 log = logging.getLogger(__name__)
@@ -471,6 +476,152 @@ class Periodogram(object):
                               label=self.label, meta=self.meta)
             return snr, bkg
         return snr
+
+############## SEISMO WORKSPACE  ############################
+
+    def estimate_numax(self, method = 'simple'):
+        """Estimates the peak of the envelope of seismic oscillation modes,
+        numax, using a choice of method.
+
+        Method 'simple' first estimates the signal to noise spectrum, and then
+        smoothes it using a Gaussian filter. The power excess around the
+        mode envelope creates a hump in the smoothed spectrum, the peak of which
+        is taken as numax.
+
+        Method 'autocorrelate' first creates an array of possible numax values.
+        It then estimates the width of the mode envelope at each numax using a
+        standard relation, and autocorrelates this region. For a numax around
+        the true numax, this will provide the correlation of the mode envelope
+        with itself. Due to the equally spaced pattern of modes, the correlation
+        at this numax will be large, revealing the likely numax value.
+
+        Parameters:
+        -----------
+        method : str
+            {'simple', 'autocorrelation'}. Default: 'simple'.
+
+        Returns:
+        --------
+        nu_max : float
+            The numax of the periodogram. In the units of the periodogram object
+            frequency.
+        """
+        #TODO: Put this in external function for diagnostic purposes
+        if method == 'simple':
+            #TODO: Check to see if periodogram object is already an snr periodogram?
+            #TODO: Justify this kernel
+            smoothed_ps = gaussian_filter(self.power.value, 1000)
+
+            numax = self.frequency[np.argmax(smoothed_ps)]
+            return nu_max
+
+    def _autocorrelate(self, numax):
+        #TODO: Improve docstring
+        #TODO: Include check for irregularly spaced arrays!
+        #Or alternatively, enforce evently spaced arrays for these methods.
+        '''Function calcluates the ACF for a given numax.
+        Paramters:
+            numax (float64): numax of the expected envelope.
+
+        Returns:
+            ndarray: the ACF calculated for the given numax
+            ndarray: the area of the power spectrum for which the ACF was calculated,
+                    multiplied by an appropriate hanning window.
+        '''
+        #Calculate the index FWHM for a given numax
+        fs = np.median(np.diff(self.frequency))
+        fwhm = int(np.floor(1.0 * 0.66 * numax.value**0.88 / fs.value))
+        fwhm -= fwhm % 2                                    # Make the FWHM value even (%2 = 0 if even, 1 if odd)
+        x = int(numax / fs)                                 #Find the index value of numax
+        s = np.hanning(len(self.power[x-fwhm:x+fwhm]))      #Define the hanning window for the evaluated frequency space
+        C = self.power[x-fwhm:x+fwhm] * s                   #Multiply the evaluated SNR space by the hanning window
+        result = np.correlate(C, C, mode='full')            #Correlated the resulting SNR space with itself
+
+        return result[int(len(result)/2):], C               #Return the ACF and the evaluated SNR space
+
+    def estimate_dnu(self, method = 'autocorrelation', numax=None):
+        """TODO: DOCSTRING PROPERLY
+
+        Estimates delta nu value, or large frequency spacing
+         Estimates the delta nu value centered around the numax value given. The autocorrelation
+        function will find the distancing between consecutive modesself.
+         Parameters
+        ----------
+        numax : float
+            The Nu max value to center our autocorrelation function
+         Returns
+        -------
+        delta_nu : float
+            So-called large frequency spacing
+        """
+        #TODO Compare to our autocorrelator for K2pipes (which I trust more)
+        #Why is our resolution so much higher? Needs some more investigating.
+        #The DFM version is easier to understand.
+        if numax is None:
+            numax = self.estimate_numax()
+
+        if method == 'autocorrelation':
+            #Calculate the ACF for the best numax estimate
+            acf, _ = self._autocorrelate(numax)
+            #Finding Mass-prior limits on dnu values for the best numax esimate
+            lower, upper = dnu_mass_prior(numax.value)
+
+            fs = np.median(np.diff(self.frequency))
+            #Calculating the correpsonding indices
+            l = int(np.floor(lower / fs.value))
+            u = int(np.floor(upper / fs.value))
+
+            #Building list of possible dnus
+            dnus = np.arange(len(acf)) * fs
+            acfrange = acf[l:u]     #The acf range to look for dnu
+            dnurange = dnus[l:u]    #The range of dnus to look for dnu
+
+            #The best dnu value is at the position of maximum acf power within the range
+            dnu = dnurange[np.argmax(acfrange)]
+            return dnu
+
+            # def next_pow_two(n):
+            #     i = 1
+            #     while i < n:
+            #         i = i << 1
+            #     return i
+            #
+            # def acor_function(x):
+            #     x = np.atleast_1d(x)
+            #     n = next_pow_two(len(x))
+            #     f = np.fft.fft(x - np.nanmean(x), n=2*n)
+            #     acf = np.fft.ifft(f * np.conjugate(f))[:len(x)].real
+            #     acf /= acf[0]
+            #     return acf
+            #
+            # def find_peaks(z):
+            #     peak_inds = (z[1:-1] > z[:-2]) * (z[1:-1] > z[2:])
+            #     peak_inds = np.arange(1, len(z)-1)[peak_inds]
+            #     peak_inds = peak_inds[np.argsort(z[peak_inds])][::-1]
+            #     return peak_inds
+            #
+            # #Autocorrelate the SNR spectrum
+            # fs = np.median(np.diff(self.frequency))
+            # acor = acor_function(gaussian_filter(self.power.value, 50)
+            # lags = df.value*np.arange(len(acor))
+            # acor = acor[lags < 30]
+            # lags = lags[lags < 30]
+            #
+            # #TODO: Check this equation.
+            # # Expected delta_nu: Stello et al (2009)
+            # dnu_expected = 0.263 * numax ** 0.772
+            # peak_lags = lags[find_peaks(acor)]
+            # delta_nu = peak_lags[np.argmin(np.abs(peak_lags - dnu_expected))]
+            # return delta_nu
+
+    def plot_dnu_diagnostics(self, method = 'autocorrelation'):
+        raise NotImplementedError('Not yet implemented!')
+
+    def plot_numax_diagnostics(self, method = 'autocorrelation'):
+        raise NotImplementedError('Not yet implemented!')
+
+
+############## SEISMO WORKSPACE  ############################
 
     def to_table(self):
         """Exports the Periodogram as an Astropy Table.
