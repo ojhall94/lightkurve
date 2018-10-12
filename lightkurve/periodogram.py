@@ -520,7 +520,7 @@ class Periodogram(object):
         return snr
 
 ############## SEISMO WORKSPACE  ############################
-
+    #TODO: Check for SNR spectrum
     def estimate_numax(self, method = 'simple'):
         """Estimates the peak of the envelope of seismic oscillation modes,
         numax, using a choice of method.
@@ -559,7 +559,7 @@ class Periodogram(object):
     def _numax_simple(self):
         """Smoothes the periodogram using a broad Gaussian filter, and returns
         the frequency of highest power in the smoothed spectrum"""
-        smoothed_ps = gaussian_filter(self.power.value, 500)
+        smoothed_ps = gaussian_filter(self.power.value, 1000)
         best_numax = self.frequency[np.argmax(smoothed_ps)]
 
         #Fit a simple gaussian to the peak
@@ -657,9 +657,6 @@ class Periodogram(object):
             The average large frequency spacing of the seismic oscillation modes.
             In units of the periodogram frequency attribute.
         """
-        #TODO Compare to our autocorrelator for K2pipes (which I trust more)
-        #Why is our resolution so much higher? Needs some more investigating.
-        #The DFM version is easier to understand.
         if numax is None:
             numax, _ = self.estimate_numax(method='simple')
 
@@ -674,6 +671,8 @@ class Periodogram(object):
             return dnu, dnu_err
 
     def _dnu_autocorrelate(self, numax):
+        """Calculates delta nu by correlating the region expected to contain
+        seismic modes with itself."""
         #Calculate the ACF for the best numax estimate
         acf = self.autocorrelate(numax)
         #Finding Mass-prior limits on dnu values for the best numax esimate
@@ -684,33 +683,54 @@ class Periodogram(object):
         fs = np.median(np.diff(self.frequency))
 
         #Calculating the correpsonding indices
-        l = int(np.floor(lower / fs.value))
-        u = int(np.floor(upper / fs.value))
+        lo = int(np.floor(lower / fs.value))
+        up = int(np.floor(upper / fs.value))
 
         #Building list of possible dnus
-        lags = np.arange(len(acf)) * fs
-        acfrange = acf[l:u]     #The acf range to look for dnu
-        lagrange = lags[l:u]    #The range of lags to look for dnu
+        lags = np.arange(len(acf)) * fs.value
+        acfrange = acf[lo:up]     #The acf range to look for dnu
+        lagrange = lags[lo:up]    #The range of lags to look for dnu
 
         #The best dnu value is at the position of maximum acf power within the range
         best_dnu = lagrange[np.argmax(acfrange)]
 
         #Fit a Gaussian to the peak
-        sigma_guess = 0.05 * best_dnu
+        sigma_guess = 0.15 * best_dnu
         sel = np.where((lagrange > (best_dnu - sigma_guess))
-                        & (dnurange < (best_dnu + sigma_guess)))
-        popt, pcov = curve_fit(self._gaussian, dnurange[sel], acfrange[sel],
+                        & (lagrange < (best_dnu + sigma_guess)))
+        popt, pcov = curve_fit(self._gaussian, lagrange[sel], acfrange[sel],
                                 p0 = [sigma_guess, np.max(acfrange), best_dnu])
 
         dnu = u.Quantity(popt[2], self.frequency.unit)
         dnu_err = u.Quantity(popt[0], self.frequency.unit)
-        return dnu, dnu_err
+        return dnu, dnu_err, lags, acf, lo, up, popt, sel
 
     def estimate_dnu_diagnostics(self, method='autocorrelate', numax=None):
+        if numax is None:
+            numax, _ = self.estimate_numax(method='simple')
+
         if method == 'empirical':
             raise NotImplentedError('No diagnostic plots for `empirical` method.')
+
         elif method == 'autocorrelate':
-            raise NotImplementedError('Not yet implemented!')
+            dnu, dnu_err, lags, acf, lo, up, popt, sel = self._dnu_autocorrelate(numax)
+
+            #TODO: Make these fit the style
+
+            fig, ax = plt.subplots(2,figsize=(12,12))
+            self.plot(ax=ax[0])
+
+            ax[1].plot(lags, acf)
+            ax[1].plot(lags[lo:up][sel], self._gaussian(lags[lo:up][sel], popt[0], popt[1], popt[2]))
+            ax[1].set_xlabel(r'$\Delta\nu$')
+            ax[1].set_ylabel(r'ACF')
+            ax[1].axvline(lo*np.median(np.diff(self.frequency)).value)
+            ax[1].axvline(up*np.median(np.diff(self.frequency)).value)
+
+            fig.tight_layout()
+            plt.show()
+            return dnu, dnu_err, ax
+
 
     def autocorrelate(self, numax, width_factor=1):
         '''An autocorrelation function for seismic mode envelopes.
@@ -751,7 +771,7 @@ class Periodogram(object):
             fwhm -= fwhm % 2                                    # Make the FWHM value even (%2 = 0 if even, 1 if odd)
             x = int(numax / fs)                                 #Find the index value of numax
             s = np.hanning(len(self.power[x-fwhm:x+fwhm]))      #Define the hanning window for the evaluated frequency space
-            C = self.power[x-fwhm:x+fwhm] * s                   #Multiply the evaluated SNR space by the hanning window
+            C = self.power[x-fwhm:x+fwhm].value * s             #Multiply the evaluated SNR space by the hanning window
             result = np.correlate(C, C, mode='full')            #Correlated the resulting SNR space with itself
 
         else:
