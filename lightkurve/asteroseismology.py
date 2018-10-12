@@ -15,7 +15,7 @@ from astropy import constants as const
 # from . import PACKAGEDIR, MPLSTYLE
 log = logging.getLogger(__name__)
 
-__all__ = ['estimate_radius', '_get_radius_err', 'estimate_mass',
+__all__ = ['dnu_mass_prior', 'estimate_radius', '_get_radius_err', 'estimate_mass',
             '_get_mass_err', 'estimate_logg','_get_logg_err']
 
 """Asteroseismic parameters"""
@@ -29,18 +29,24 @@ Rsol = const.R_sun.to(u.R_sun)
 Msol = const.M_sun.to(u.M_sun)
 gsol = 100 * (const.G * const.M_sun)/(const.R_sun)**2 #cms^2
 
+#TO DO: Remove options for seismic scaling relation corrections
+
+
 def dnu_mass_prior(numax, numax_sol=3050.0,
                dnu_sol=135.1, teff_sol=5777.0):
-    ''' Mass scaling relation ...
-    M/M' = (numax/numax')**3 (dnu/dnu')**-4 (teff/teff')**(3/2)
-    So dnur**4 = numaxr**3 teffr**3/2 * Mr**-1*
-    dnur = (nuamxr**3 * teffr**3/2 / Mr)**1/4
+    """ Use the mass scaling relation to calculate a resonable range that could
+    contain dnu. A ' indicates a solar value.
+
+    M/M' = (numax/numax')**3 (dnu/dnu')**-4 (teff/teff')**(3/2), and so
+
+    (dnu/dnu')**4 = numaxr**3 teffr**3/2 * Mr**-1, and so
+
     dnu = (nuamxr**3 * teffr**3/2 / Mr)**1/4 * dnu'
-    '''
+    """
     numaxr = numax / numax_sol
-    teffr = np.array([3500, 5500]) / teff_sol
-    Mr = np.array([10.0, 0.1])
-    dnu = (numaxr**3 * teffr**1.5 / Mr)**0.25 * dnu_sol
+    teffr = np.array([3500, 5500]) / teff_sol    #A reasonable range of temperatures
+    Mr = np.array([10.0, 0.1])                   #A reasonable range of masses
+    dnu = (numaxr**3 * teffr**1.5 / Mr)**0.25 * dnu_sol   #Calculate range of dnus
     return dnu
 
 #We can worry about unit conversions later
@@ -85,7 +91,7 @@ def estimate_radius(numax, dnu, Teff,
     R = Rsol * (numax / (fnumax*Numaxsol)) * (dnu / (fdnu * Dnusol))**(-2.) * (Teff / Tsol)**(0.5)
 
     if not all(b is None for b in [numax_error, dnu_error, Teff_error]):
-        return R, _get_radius_error(numax, numax_error, dnu, dnu_error,
+        return R, _get_radius_err(numax, numax_error, dnu, dnu_error,
                                     Teff, Teff_error, fdnu, fnumax)
     return R
 
