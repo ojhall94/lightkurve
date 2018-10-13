@@ -19,18 +19,15 @@ __all__ = ['dnu_mass_prior', 'estimate_radius', '_get_radius_err', 'estimate_mas
             '_get_mass_err', 'estimate_logg','_get_logg_err']
 
 """Asteroseismic parameters"""
-Numaxsol = 3090 #[Huber et al 2011]
-eNumaxsol = 30 #[Huber et al 2011]
-Dnusol = 135.1  #[Huber et al 2011]
-eDnusol = 0.1 #[Huber et al 2011]
+Numaxsol = u.Quantity(3090, u.microhertz) #[Huber et al 2011]
+eNumaxsol = u.Quantity(30, u.microhertz) #[Huber et al 2011]
+Dnusol = u.Quantity(135.1 , u.microhertz) #[Huber et al 2011]
+eDnusol = u.Quantity(0.1, u.microhertz) #[Huber et al 2011]
 """Solar parameters"""
 Tsol = 5777 #[Williams 2013]
 Rsol = const.R_sun.to(u.R_sun)
 Msol = const.M_sun.to(u.M_sun)
 gsol = 100 * (const.G * const.M_sun)/(const.R_sun)**2 #cms^2
-
-#TO DO: Remove options for seismic scaling relation corrections
-
 
 def dnu_mass_prior(numax, numax_sol=3050.0,
                dnu_sol=135.1, teff_sol=5777.0):
@@ -51,7 +48,7 @@ def dnu_mass_prior(numax, numax_sol=3050.0,
 
 #We can worry about unit conversions later
 def estimate_radius(numax, dnu, Teff,
-                    numax_error=None, dnu_error=None, Teff_error=None,
+                    numax_err=None, dnu_err=None, Teff_err=None,
                     fdnu=1., fnumax=1.):
     """Calculates radius using the asteroseismic scaling relations.
 
@@ -65,11 +62,11 @@ def estimate_radius(numax, dnu, Teff,
         degree. In units of microhertz.
     Teff : float
         The effective temperature of the star. In units of Kelvin.
-    numax_error : float
+    numax_err : float
         Error on the numax value.
-    dnu_error : float
+    dnu_err : float
         Error on the dnu value.
-    Teff_error : float
+    Teff_err : float
         Error on the Teff value,
     fdnu : int
         A correction to the seismic scaling relation for Delta Nu. Effectively
@@ -83,16 +80,16 @@ def estimate_radius(numax, dnu, Teff,
     R : float
         An estimate of the stellar radius.
 
-    If any of `numax_error`, `dnu_error` and `teff_error` are passed, it will
+    If any of `numax_err`, `dnu_err` and `teff_err` are passed, it will
     also return:
     sigR : float
         Uncertainty on the Radius estimate.
     """
     R = Rsol * (numax / (fnumax*Numaxsol)) * (dnu / (fdnu * Dnusol))**(-2.) * (Teff / Tsol)**(0.5)
 
-    if not all(b is None for b in [numax_error, dnu_error, Teff_error]):
-        return R, _get_radius_err(numax, numax_error, dnu, dnu_error,
-                                    Teff, Teff_error, fdnu, fnumax)
+    if not all(b is None for b in [numax_err, dnu_err, Teff_err]):
+        return R, _get_radius_err(numax, numax_err, dnu, dnu_err,
+                                    Teff, Teff_err, fdnu, fnumax)
     return R
 
 def _get_radius_err(numax, numax_err, dnu, dnu_err,
@@ -111,11 +108,11 @@ def _get_radius_err(numax, numax_err, dnu, dnu_err,
         degree. In units of microhertz.
     Teff : float
         The effective temperature of the star. In units of Kelvin.
-    numax_error : float
+    numax_err : float
         Error on the numax value.
-    dnu_error : float
+    dnu_err : float
         Error on the dnu value.
-    Teff_error : float
+    Teff_err : float
         Error on the Teff value,
     fdnu : int
         A correction to the seismic scaling relation for Delta Nu. Effectively
@@ -163,7 +160,7 @@ def _get_radius_err(numax, numax_err, dnu, dnu_err,
     return sigR
 
 def estimate_mass(numax, dnu, Teff,
-                    numax_error=None, dnu_error=None, Teff_error=None,
+                    numax_err=None, dnu_err=None, Teff_err=None,
                     fdnu=1., fnumax=1.):
     """Calculates mass using the asteroseismic scaling relations.
 
@@ -177,11 +174,11 @@ def estimate_mass(numax, dnu, Teff,
         degree. In units of microhertz.
     Teff : float
         The effective temperature of the star. In units of Kelvin.
-    numax_error : float
+    numax_err : float
         Error on the numax value.
-    dnu_error : float
+    dnu_err : float
         Error on the dnu value.
-    Teff_error : float
+    Teff_err : float
         Error on the Teff value,
     fdnu : int
         A correction to the seismic scaling relation for Delta Nu. Effectively
@@ -195,16 +192,16 @@ def estimate_mass(numax, dnu, Teff,
     M : float
         An estimate of the stellar radius.
 
-    If any of `numax_error`, `dnu_error` and `teff_error` are passed, it will
+    If any of `numax_err`, `dnu_err` and `teff_err` are passed, it will
     also return:
     sigM : float
         Uncertainty on the Mass estimate.
     """
     M = Msol * (numax / (fnumax*Numaxsol))**3. * (dnu / (fdnu * Dnusol))**(-4.) * (Teff / Tsol)**(1.5)
 
-    if not all(b is None for b in [numax_error, dnu_error, Teff_error]):
-        return M, _get_mass_err(numax, numax_error, dnu, dnu_error,
-                                    Teff, Teff_error, fdnu, fnumax)
+    if not all(b is None for b in [numax_err, dnu_err, Teff_err]):
+        return M, _get_mass_err(numax, numax_err, dnu, dnu_err,
+                                    Teff, Teff_err, fdnu, fnumax)
     return M
 
 def _get_mass_err(numax, numax_err, dnu, dnu_err,
@@ -223,11 +220,11 @@ def _get_mass_err(numax, numax_err, dnu, dnu_err,
         degree. In units of microhertz.
     Teff : float
         The effective temperature of the star. In units of Kelvin.
-    numax_error : float
+    numax_err : float
         Error on the numax value.
-    dnu_error : float
+    dnu_err : float
         Error on the dnu value.
-    Teff_error : float
+    Teff_err : float
         Error on the Teff value,
     fdnu : int
         A correction to the seismic scaling relation for Delta Nu. Effectively
@@ -273,7 +270,7 @@ def _get_mass_err(numax, numax_err, dnu, dnu_err,
     sigM = np.sqrt(dmdnumax + dmdnu + dmdt + dmdnumaxsol + dmddnusol)
     return sigM
 
-def estimate_logg(numax, Teff, numax_error=None, Teff_error=None,
+def estimate_logg(numax, Teff, numax_err=None, Teff_err=None,
                             fnumax=1.):
     """Calculates the log of the surface gravity using the asteroseismic scaling
     relations.
@@ -285,9 +282,9 @@ def estimate_logg(numax, Teff, numax_error=None, Teff_error=None,
         microhertz.
     Teff : float
         The effective temperature of the star. In units of Kelvin.
-    numax_error : float
+    numax_err : float
         Error on the numax value.
-    Teff_error : float
+    Teff_err : float
         Error on the Teff value,
     fnumax : int
         A correction to the seismic scaling relation for Numax. Effectively
@@ -301,11 +298,11 @@ def estimate_logg(numax, Teff, numax_error=None, Teff_error=None,
 
     g = gsol.value * (numax / (fnumax * Numaxsol)) * (Teff/Tsol)**0.5
 
-    if not all(b is None for b in [numax_error, Teff_error]):
-        return np.log10(g) * u.dex, _get_gravity_err(numax, numax_error, Teff, Teff_error, fnumax)
-    return np.log10(g) * u.dex
+    if not all(b is None for b in [numax_err, Teff_err]):
+        return np.log10(g.value) * u.dex, _get_logg_err(numax, numax_err, Teff, Teff_err, fnumax)
+    return np.log10(g.value) * u.dex
 
-def _get_logg_err(self):
+def _get_logg_err(numax, numax_err, Teff, Teff_err, fnumax):
     """Calculates the unceratinty on log of the surface gravity using the
     asteroseismic scaling relations.
 
@@ -316,9 +313,9 @@ def _get_logg_err(self):
         microhertz.
     Teff : float
         The effective temperature of the star. In units of Kelvin.
-    numax_error : float
+    numax_err : float
         Error on the numax value.
-    Teff_error : float
+    Teff_err : float
         Error on the Teff value,
     fnumax : int
         A correction to the seismic scaling relation for Numax. Effectively
@@ -329,7 +326,7 @@ def _get_logg_err(self):
     R : float
         An estimate of the stellar radius.
 
-    If any of `numax_error` and `teff_error` are passed, it will
+    If any of `numax_err` and `teff_err` are passed, it will
     also return:
     siglogg : float
         Uncertainty on the log(g) estimate.
@@ -340,7 +337,7 @@ def _get_logg_err(self):
     else:
         dgdnumax = 0.
 
-    if dnu_err is not None:
+    if Teff_err is not None:
         dgdteff = ((gsol.value/Tsol**(0.5)) * (numax/(fnumax * Numaxsol)) * 0.5*Teff**(-0.5))**2. * Teff_err**2.
     else:
         dgdteff = 0.
@@ -351,6 +348,6 @@ def _get_logg_err(self):
 
     #Then we convert to log10 space
     g = gsol * (numax/(fnumax * Numaxsol)) * (Teff/Tsol)**0.5
-    siglogg = sigg / (g * np.log(10.)) * u.dex
+    siglogg = sigg.value / (g.value * np.log(10.)) * u.dex
 
     return siglogg
