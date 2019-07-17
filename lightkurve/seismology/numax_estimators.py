@@ -44,9 +44,11 @@ def estimate_numax_acf(periodogram, numaxs=None, window=None, spacing=None):
     if not hasattr(numaxs, '__iter__'):
         numaxs = np.asarray([numaxs])
 
+    #TODO: Create a fix that works for numaxs
+
     fs = np.median(np.diff(periodogram.frequency.value))
     for var, label in zip([np.asarray(window), np.asarray(spacing), numaxs],
-                          ['window', 'spacing', 'numaxs']):
+                          ['window', 'spacing']):
         if (var < fs).any():
             raise ValueError("You can't have {} smaller than the "
                             "frequency separation!".format(label))
@@ -71,13 +73,13 @@ def estimate_numax_acf(periodogram, numaxs=None, window=None, spacing=None):
     # Previous smoothing could be completely wrong, it's based on the length of the array, not the frequency!!!
     # It needs to be based on the frequency differences in `numaxs`
     if len(numaxs) > 10:
-        g = Gaussian1DKernel(stddev=100 * np.nanmedian(np.diff(numaxs)))
+        g = Gaussian1DKernel(stddev=np.sqrt(len(metric)))
         metric_smooth = convolve(metric, g, boundary='extend')
     else:
         metric_smooth = metric
 
     # The highest value of the metric corresponds to numax
-    best_numax = numaxs[np.argmax(metric_smooth)]     
+    best_numax = numaxs[np.argmax(metric_smooth)]
     best_numax = u.Quantity(best_numax, periodogram.frequency.unit)
 
     # Create and return the object containing the result and diagnostics
@@ -85,7 +87,7 @@ def estimate_numax_acf(periodogram, numaxs=None, window=None, spacing=None):
                    'metric':metric, 'metric_smooth': metric_smooth}
     result = SeismologyQuantity(best_numax,
                                 name="numax",
-                                method="2D ACF (Viani et al. 2019)",
+                                method="2D ACF",
                                 diagnostics=diagnostics,
                                 diagnostics_plot_method=diagnose_numax_acf)
     return result
