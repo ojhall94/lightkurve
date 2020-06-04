@@ -1168,7 +1168,7 @@ class KeplerTargetPixelFile(TargetPixelFile):
                                 bitmask=quality_bitmask)
 
         # check to make sure the correct filetype has been provided
-        filetype = detect_filetype(self.get_header())
+        filetype = detect_filetype(self.hdu)
         if filetype == 'TessTargetPixelFile':
             warnings.warn("A TESS data product is being opened using the "
                           "`KeplerTargetPixelFile` class. "
@@ -1278,7 +1278,7 @@ class KeplerTargetPixelFile(TargetPixelFile):
                 'dec': self.dec,
                 'label': self.get_header()['OBJECT'],
                 'targetid': self.targetid}
-        return KeplerLightCurve(time=self.time,
+        return KeplerLightCurve(time=self.astropy_time,
                                 flux=flux,
                                 flux_err=flux_err,
                                 **keys)
@@ -1300,7 +1300,7 @@ class KeplerTargetPixelFile(TargetPixelFile):
                 'dec': self.dec,
                 'label': self.get_header()['OBJECT'],
                 'targetid': self.targetid}
-        return KeplerLightCurve(time=self.time,
+        return KeplerLightCurve(time=self.astropy_time,
                                 flux=np.nansum(self.flux_bkg[:, aperture_mask], axis=1),
                                 flux_err=flux_bkg_err,
                                 **keys)
@@ -1390,7 +1390,7 @@ class KeplerTargetPixelFile(TargetPixelFile):
                 'ra': self.ra,
                 'dec': self.dec,
                 'targetid': self.targetid}
-        return KeplerLightCurve(time=self.time,
+        return KeplerLightCurve(time=self.astropy_time,
                                 flux=lc.flux,
                                 **keys)
 
@@ -1821,7 +1821,7 @@ class TessTargetPixelFile(TargetPixelFile):
             self.quality_mask &= np.isfinite(self.hdu[1].data['TIME'])
 
         # check to make sure the correct filetype has been provided
-        filetype = detect_filetype(self.get_header())
+        filetype = detect_filetype(self.hdu)
         if filetype == 'KeplerTargetPixelFile':
             warnings.warn("A Kepler data product is being opened using the "
                           "`TessTargetPixelFile` class. "
@@ -1907,7 +1907,7 @@ class TessTargetPixelFile(TargetPixelFile):
                 'dec': self.dec,
                 'label': self.get_keyword('OBJECT'),
                 'targetid': self.targetid}
-        return TessLightCurve(time=self.time,
+        return TessLightCurve(time=self.astropy_time,
                               flux=flux,
                               flux_err=flux_err,
                               **keys)
@@ -1927,7 +1927,7 @@ class TessTargetPixelFile(TargetPixelFile):
                 'dec': self.dec,
                 'label': self.get_header()['OBJECT'],
                 'targetid': self.targetid}
-        return TessLightCurve(time=self.time,
+        return TessLightCurve(time=self.astropy_time,
                               flux=np.nansum(self.flux_bkg[:, aperture_mask], axis=1),
                               flux_err=flux_bkg_err,
                               **keys)
